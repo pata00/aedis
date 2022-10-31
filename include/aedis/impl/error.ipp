@@ -9,7 +9,7 @@
 namespace aedis {
 namespace detail {
 
-struct error_category_impl : boost::system::error_category {
+struct error_category_impl : asio::error_category {
 
    virtual ~error_category_impl() = default;
 
@@ -44,12 +44,12 @@ struct error_category_impl : boost::system::error_category {
 	 case error::ssl_handshake_timeout: return "SSL handshake timeout.";
 	 case error::not_connected: return "Not connected.";
 	 case error::resp3_handshake_error: return "RESP3 handshake error (HELLO command).";
-	 default: BOOST_ASSERT(false); return "Aedis error.";
+	 default: ASIO_ASSERT(false); return "Aedis error.";
       }
    }
 };
 
-auto category() -> boost::system::error_category const&
+auto category() -> asio::error_category const&
 {
   static error_category_impl instance;
   return instance;
@@ -57,9 +57,9 @@ auto category() -> boost::system::error_category const&
 
 } // detail
 
-auto make_error_code(error e) -> boost::system::error_code
+auto make_error_code(error e) -> asio::error_code
 {
-    return boost::system::error_code{static_cast<int>(e), detail::category()};
+    return asio::error_code{static_cast<int>(e), detail::category()};
 }
 
 } // aedis

@@ -10,7 +10,7 @@
 #include <chrono>
 #include <memory>
 
-#include <boost/asio/io_context.hpp>
+#include <asio/io_context.hpp>
 #include <aedis/detail/connection_base.hpp>
 #include <aedis/ssl/detail/connection_ops.hpp>
 
@@ -31,17 +31,17 @@ class connection;
  *
  */
 template <class AsyncReadWriteStream>
-class connection<boost::asio::ssl::stream<AsyncReadWriteStream>> :
+class connection<asio::ssl::stream<AsyncReadWriteStream>> :
    private aedis::detail::connection_base<
-      typename boost::asio::ssl::stream<AsyncReadWriteStream>::executor_type,
-      connection<boost::asio::ssl::stream<AsyncReadWriteStream>>> {
+      typename asio::ssl::stream<AsyncReadWriteStream>::executor_type,
+      connection<asio::ssl::stream<AsyncReadWriteStream>>> {
 public:
    /// Type of the next layer
-   using next_layer_type = boost::asio::ssl::stream<AsyncReadWriteStream>;
+   using next_layer_type = asio::ssl::stream<AsyncReadWriteStream>;
 
    /// Executor type.
    using executor_type = typename next_layer_type::executor_type;
-   using base_type = aedis::detail::connection_base<executor_type, connection<boost::asio::ssl::stream<AsyncReadWriteStream>>>;
+   using base_type = aedis::detail::connection_base<executor_type, connection<asio::ssl::stream<AsyncReadWriteStream>>>;
 
    /** \brief Connection configuration parameters.
     */
@@ -63,14 +63,14 @@ public:
    };
 
    /// Constructor
-   explicit connection(executor_type ex, boost::asio::ssl::context& ctx)
+   explicit connection(executor_type ex, asio::ssl::context& ctx)
    : base_type{ex}
    , stream_{ex, ctx}
    {
    }
 
    /// Constructor
-   explicit connection(boost::asio::io_context& ioc, boost::asio::ssl::context& ctx)
+   explicit connection(asio::io_context& ioc, asio::ssl::context& ctx)
    : connection(ioc.get_executor(), ctx)
    { }
 
@@ -78,7 +78,7 @@ public:
    auto get_executor() {return stream_.get_executor();}
 
    /// Reset the underlying stream.
-   void reset_stream(boost::asio::ssl::context& ctx)
+   void reset_stream(asio::ssl::context& ctx)
    {
       stream_ = next_layer_type{stream_.get_executor(), ctx};
    }
@@ -93,7 +93,7 @@ public:
     *
     *  See aedis::connection::async_run for more information.
     */
-   template <class CompletionToken = boost::asio::default_completion_token_t<executor_type>>
+   template <class CompletionToken = asio::default_completion_token_t<executor_type>>
    auto
    async_run(
       endpoint ep,
@@ -109,7 +109,7 @@ public:
     */
    template <
       class Adapter = aedis::detail::response_traits<void>::adapter_type,
-      class CompletionToken = boost::asio::default_completion_token_t<executor_type>>
+      class CompletionToken = asio::default_completion_token_t<executor_type>>
    auto async_exec(
       resp3::request const& req,
       Adapter adapter = adapt(),
@@ -124,7 +124,7 @@ public:
     */
    template <
       class Adapter = aedis::detail::response_traits<void>::adapter_type,
-      class CompletionToken = boost::asio::default_completion_token_t<executor_type>>
+      class CompletionToken = asio::default_completion_token_t<executor_type>>
    auto async_receive(
       Adapter adapter = adapt(),
       CompletionToken token = CompletionToken{})
@@ -159,14 +159,14 @@ private:
    template <class Timer, class CompletionToken>
    auto
    async_connect(
-      boost::asio::ip::tcp::resolver::results_type const& endpoints,
+      asio::ip::tcp::resolver::results_type const& endpoints,
       timeouts ts,
       Timer& timer,
       CompletionToken&& token)
    {
-      return boost::asio::async_compose
+      return asio::async_compose
          < CompletionToken
-         , void(boost::system::error_code)
+         , void(asio::error_code)
          >(detail::ssl_connect_with_timeout_op<this_type, Timer>{this, &endpoints, ts, &timer}, token, stream_);
    }
 

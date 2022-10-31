@@ -12,7 +12,7 @@
 
 namespace aedis::resp3::detail {
 
-auto parse_uint(char const* data, std::size_t size, boost::system::error_code& ec) -> std::size_t
+auto parse_uint(char const* data, std::size_t size, asio::error_code& ec) -> std::size_t
 {
    static constexpr boost::spirit::x3::uint_parser<std::size_t, 10> p{};
    std::size_t ret = 0;

@@ -10,7 +10,7 @@
 #include <chrono>
 #include <memory>
 
-#include <boost/asio/io_context.hpp>
+#include <asio/io_context.hpp>
 #include <aedis/detail/connection_base.hpp>
 
 namespace aedis {
@@ -25,7 +25,7 @@ namespace aedis {
  *  @tparam AsyncReadWriteStream A stream that supports reading and
  *  writing.
  */
-template <class AsyncReadWriteStream = boost::asio::ip::tcp::socket>
+template <class AsyncReadWriteStream = asio::ip::tcp::socket>
 class connection :
    private detail::connection_base<
       typename AsyncReadWriteStream::executor_type,
@@ -60,7 +60,7 @@ public:
    , stream_{ex}
    {}
 
-   explicit connection(boost::asio::io_context& ioc)
+   explicit connection(asio::io_context& ioc)
    : connection(ioc.get_executor())
    { }
 
@@ -71,8 +71,8 @@ public:
    void reset_stream()
    {
       if (stream_.is_open()) {
-         boost::system::error_code ignore;
-         stream_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignore);
+         asio::error_code ignore;
+         stream_.shutdown(asio::ip::tcp::socket::shutdown_both, ignore);
          stream_.close(ignore);
       }
    }
@@ -128,10 +128,10 @@ public:
     *  The completion token must have the following signature
     *
     *  @code
-    *  void f(boost::system::error_code);
+    *  void f(asio::error_code);
     *  @endcode
     */
-   template <class CompletionToken = boost::asio::default_completion_token_t<executor_type>>
+   template <class CompletionToken = asio::default_completion_token_t<executor_type>>
    auto
    async_run(
       endpoint ep,
@@ -158,7 +158,7 @@ public:
     *  have the following signature
     *
     *  @code
-    *  void f(boost::system::error_code, std::size_t);
+    *  void f(asio::error_code, std::size_t);
     *  @endcode
     *
     *  Where the second parameter is the size of the response in
@@ -166,7 +166,7 @@ public:
     */
    template <
       class Adapter = detail::response_traits<void>::adapter_type,
-      class CompletionToken = boost::asio::default_completion_token_t<executor_type>>
+      class CompletionToken = asio::default_completion_token_t<executor_type>>
    auto async_exec(
       resp3::request const& req,
       Adapter adapter = adapt(),
@@ -188,7 +188,7 @@ public:
     *  have the following signature
     *
     *  @code
-    *  void f(boost::system::error_code, std::size_t);
+    *  void f(asio::error_code, std::size_t);
     *  @endcode
     *
     *  Where the second parameter is the size of the push in
@@ -196,7 +196,7 @@ public:
     */
    template <
       class Adapter = detail::response_traits<void>::adapter_type,
-      class CompletionToken = boost::asio::default_completion_token_t<executor_type>>
+      class CompletionToken = asio::default_completion_token_t<executor_type>>
    auto async_receive(
       Adapter adapter = adapt(),
       CompletionToken token = CompletionToken{})
@@ -242,14 +242,14 @@ private:
    template <class Timer, class CompletionToken>
    auto
    async_connect(
-      boost::asio::ip::tcp::resolver::results_type const& endpoints,
+      asio::ip::tcp::resolver::results_type const& endpoints,
       timeouts ts,
       Timer& timer,
       CompletionToken&& token)
    {
-      return boost::asio::async_compose
+      return asio::async_compose
          < CompletionToken
-         , void(boost::system::error_code)
+         , void(asio::error_code)
          >(detail::connect_with_timeout_op<this_type, Timer>{this, &endpoints, ts, &timer},
                token, stream_);
    }

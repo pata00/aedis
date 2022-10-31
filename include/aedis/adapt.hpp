@@ -12,7 +12,7 @@
 
 #include <boost/mp11.hpp>
 #include <boost/variant2.hpp>
-#include <boost/utility/string_view.hpp>
+#include <string_view>
 #include <boost/system.hpp>
 
 #include <aedis/resp3/node.hpp>
@@ -44,7 +44,7 @@ public:
 
    void
    operator()(
-      std::size_t, resp3::node<boost::string_view> const&, boost::system::error_code&) { }
+      std::size_t, resp3::node<std::string_view> const&, asio::error_code&) { }
 
    [[nodiscard]]
    auto get_supported_response_size() const noexcept
@@ -87,12 +87,12 @@ public:
    void
    operator()(
       std::size_t i,
-      resp3::node<boost::string_view> const& nd,
-      boost::system::error_code& ec)
+      resp3::node<std::string_view> const& nd,
+      asio::error_code& ec)
    {
       using boost::variant2::visit;
       // I am usure whether this should be an error or an assertion.
-      BOOST_ASSERT(i < adapters_.size());
+      ASIO_ASSERT(i < adapters_.size());
       visit([&](auto& arg){arg(nd, ec);}, adapters_.at(i));
    }
 };
@@ -122,8 +122,8 @@ public:
    void
    operator()(
       std::size_t,
-      resp3::node<boost::string_view> const& nd,
-      boost::system::error_code& ec)
+      resp3::node<std::string_view> const& nd,
+      asio::error_code& ec)
    {
       adapter_(nd, ec);
    }
@@ -164,7 +164,7 @@ class wrapper {
 public:
    explicit wrapper(Adapter adapter) : adapter_{adapter} {}
 
-   void operator()(resp3::node<boost::string_view> const& node, boost::system::error_code& ec)
+   void operator()(resp3::node<std::string_view> const& node, asio::error_code& ec)
       { return adapter_(0, node, ec); }
 
    [[nodiscard]]

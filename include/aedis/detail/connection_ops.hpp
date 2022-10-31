@@ -10,11 +10,11 @@
 #include <array>
 #include <algorithm>
 
-#include <boost/assert.hpp>
+#include <asio/detail/assert.hpp>
 #include <boost/system.hpp>
-#include <boost/asio/write.hpp>
+#include <asio/write.hpp>
 #include <boost/core/ignore_unused.hpp>
-#include <boost/asio/experimental/parallel_group.hpp>
+#include <asio/experimental/parallel_group.hpp>
 
 #include <aedis/adapt.hpp>
 #include <aedis/error.hpp>
@@ -26,22 +26,22 @@
 #include <aedis/resp3/write.hpp>
 #include <aedis/resp3/request.hpp>
 
-#include <boost/asio/yield.hpp>
+#include <asio/yield.hpp>
 
 namespace aedis::detail {
 
 template <class Conn, class Timer>
 struct connect_with_timeout_op {
    Conn* conn = nullptr;
-   boost::asio::ip::tcp::resolver::results_type const* endpoints = nullptr;
+   asio::ip::tcp::resolver::results_type const* endpoints = nullptr;
    typename Conn::timeouts ts;
    Timer* timer = nullptr;
-   boost::asio::coroutine coro{};
+   asio::coroutine coro{};
 
    template <class Self>
    void operator()( Self& self
-                  , boost::system::error_code ec = {}
-                  , boost::asio::ip::tcp::endpoint const& = {})
+                  , asio::error_code ec = {}
+                  , asio::ip::tcp::endpoint const& = {})
    {
       reenter (coro)
       {
@@ -57,12 +57,12 @@ template <class Conn>
 struct resolve_with_timeout_op {
    Conn* conn = nullptr;
    std::chrono::steady_clock::duration resolve_timeout;
-   boost::asio::coroutine coro{};
+   asio::coroutine coro{};
 
    template <class Self>
    void operator()( Self& self
-                  , boost::system::error_code ec = {}
-                  , boost::asio::ip::tcp::resolver::results_type const& res = {})
+                  , asio::error_code ec = {}
+                  , asio::ip::tcp::resolver::results_type const& res = {})
    {
       reenter (coro)
       {
@@ -83,12 +83,12 @@ struct receive_op {
    Conn* conn = nullptr;
    Adapter adapter;
    std::size_t read_size = 0;
-   boost::asio::coroutine coro{};
+   asio::coroutine coro{};
 
    template <class Self>
    void
    operator()( Self& self
-             , boost::system::error_code ec = {}
+             , asio::error_code ec = {}
              , std::size_t n = 0)
    {
       reenter (coro)
@@ -125,20 +125,20 @@ struct exec_read_op {
    std::size_t cmds = 0;
    std::size_t read_size = 0;
    std::size_t index = 0;
-   boost::asio::coroutine coro{};
+   asio::coroutine coro{};
 
    template <class Self>
    void
    operator()( Self& self
-             , boost::system::error_code ec = {}
+             , asio::error_code ec = {}
              , std::size_t n = 0)
    {
       reenter (coro)
       {
          // Loop reading the responses to this request.
-         BOOST_ASSERT(!conn->reqs_.empty());
+         ASIO_ASSERT(!conn->reqs_.empty());
          while (cmds != 0) {
-            BOOST_ASSERT(conn->cmds_ != 0);
+            ASIO_ASSERT(conn->cmds_ != 0);
 
             //-----------------------------------
             // If we detect a push in the middle of a request we have
@@ -146,7 +146,7 @@ struct exec_read_op {
             // some data in the read bufer.
             if (conn->read_buffer_.empty()) {
                yield
-               boost::asio::async_read_until(
+               asio::async_read_until(
                   conn->next_layer(),
                   conn->make_dynamic_buffer(),
                   "\r\n", std::move(self));
@@ -167,7 +167,7 @@ struct exec_read_op {
             resp3::async_read(
                conn->next_layer(),
                conn->make_dynamic_buffer(adapter.get_max_read_size(index)),
-                  [i = index, adpt = adapter] (resp3::node<boost::string_view> const& nd, boost::system::error_code& ec) mutable { adpt(i, nd, ec); },
+                  [i = index, adpt = adapter] (resp3::node<std::string_view> const& nd, asio::error_code& ec) mutable { adpt(i, nd, ec); },
                   std::move(self));
 
             ++index;
@@ -176,10 +176,10 @@ struct exec_read_op {
 
             read_size += n;
 
-            BOOST_ASSERT(cmds != 0);
+            ASIO_ASSERT(cmds != 0);
             --cmds;
 
-            BOOST_ASSERT(conn->cmds_ != 0);
+            ASIO_ASSERT(conn->cmds_ != 0);
             --conn->cmds_;
          }
 
@@ -197,12 +197,12 @@ struct exec_op {
    Adapter adapter{};
    std::shared_ptr<req_info_type> info = nullptr;
    std::size_t read_size = 0;
-   boost::asio::coroutine coro{};
+   asio::coroutine coro{};
 
    template <class Self>
    void
    operator()( Self& self
-             , boost::system::error_code ec = {}
+             , asio::error_code ec = {}
              , std::size_t n = 0)
    {
       reenter (coro)
@@ -216,12 +216,12 @@ struct exec_op {
          if (req->get_config().cancel_if_not_connected && !conn->is_open())
             return self.complete(error::not_connected, 0);
 
-         info = std::allocate_shared<req_info_type>(boost::asio::get_associated_allocator(self), *req, conn->resv_.get_executor());
+         info = std::allocate_shared<req_info_type>(asio::get_associated_allocator(self), *req, conn->resv_.get_executor());
 
          conn->add_request_info(info);
 EXEC_OP_WAIT:
          yield info->async_wait(std::move(self));
-         BOOST_ASSERT(ec == boost::asio::error::operation_aborted);
+         ASIO_ASSERT(ec == asio::error::operation_aborted);
 
          if (info->get_action() == Conn::req_info::action::stop) {
             return self.complete(ec, 0);
@@ -238,21 +238,21 @@ EXEC_OP_WAIT:
             }
          }
 
-         BOOST_ASSERT(conn->is_open());
+         ASIO_ASSERT(conn->is_open());
           
          if (req->size() == 0)
             return self.complete({}, 0);
 
-         BOOST_ASSERT(!conn->reqs_.empty());
-         BOOST_ASSERT(conn->reqs_.front() != nullptr);
-         BOOST_ASSERT(conn->cmds_ != 0);
+         ASIO_ASSERT(!conn->reqs_.empty());
+         ASIO_ASSERT(conn->reqs_.front() != nullptr);
+         ASIO_ASSERT(conn->cmds_ != 0);
          yield
          conn->async_exec_read(adapter, conn->reqs_.front()->get_number_of_commands(), std::move(self));
          AEDIS_CHECK_OP1();
 
          read_size = n;
 
-         BOOST_ASSERT(!conn->reqs_.empty());
+         ASIO_ASSERT(!conn->reqs_.empty());
          conn->reqs_.pop_front();
 
          if (conn->cmds_ == 0) {
@@ -260,7 +260,7 @@ EXEC_OP_WAIT:
             if (!conn->reqs_.empty())
                conn->writer_timer_.cancel_one();
          } else {
-            BOOST_ASSERT(!conn->reqs_.empty());
+            ASIO_ASSERT(!conn->reqs_.empty());
             conn->reqs_.front()->proceed();
          }
 
@@ -273,12 +273,12 @@ template <class Conn>
 struct ping_op {
    Conn* conn{};
    std::chrono::steady_clock::duration ping_interval{};
-   boost::asio::coroutine coro{};
+   asio::coroutine coro{};
 
    template <class Self>
    void
    operator()( Self& self
-             , boost::system::error_code ec = {}
+             , asio::error_code ec = {}
              , std::size_t = 0)
    {
       reenter (coro) for (;;)
@@ -309,10 +309,10 @@ template <class Conn>
 struct check_idle_op {
    Conn* conn{};
    std::chrono::steady_clock::duration ping_interval{};
-   boost::asio::coroutine coro{};
+   asio::coroutine coro{};
 
    template <class Self>
-   void operator()(Self& self, boost::system::error_code ec = {})
+   void operator()(Self& self, asio::error_code ec = {})
    {
       reenter (coro) for (;;)
       {
@@ -340,30 +340,30 @@ template <class Conn, class Timeouts>
 struct start_op {
    Conn* conn;
    Timeouts ts;
-   boost::asio::coroutine coro{};
+   asio::coroutine coro{};
 
    template <class Self>
    void operator()( Self& self
                   , std::array<std::size_t, 4> order = {}
-                  , boost::system::error_code ec0 = {}
-                  , boost::system::error_code ec1 = {}
-                  , boost::system::error_code ec2 = {}
-                  , boost::system::error_code ec3 = {})
+                  , asio::error_code ec0 = {}
+                  , asio::error_code ec1 = {}
+                  , asio::error_code ec2 = {}
+                  , asio::error_code ec3 = {})
    {
       reenter (coro)
       {
          yield
-         boost::asio::experimental::make_parallel_group(
+         asio::experimental::make_parallel_group(
             [this](auto token) { return conn->reader(token);},
             [this](auto token) { return conn->writer(token);},
             [this](auto token) { return conn->async_check_idle(ts.ping_interval, token);},
             [this](auto token) { return conn->async_ping(ts.ping_interval, token);}
          ).async_wait(
-            boost::asio::experimental::wait_for_one(),
+            asio::experimental::wait_for_one(),
             std::move(self));
 
          if (is_cancelled(self)) {
-            self.complete(boost::asio::error::operation_aborted);
+            self.complete(asio::error::operation_aborted);
             return;
          }
 
@@ -372,7 +372,7 @@ struct start_op {
            case 1: self.complete(ec1); break;
            case 2: self.complete(ec2); break;
            case 3: self.complete(ec3); break;
-           default: BOOST_ASSERT(false);
+           default: ASIO_ASSERT(false);
          }
       }
    }
@@ -391,12 +391,12 @@ template <class Conn, class Timeouts>
 struct run_op {
    Conn* conn = nullptr;
    Timeouts ts;
-   boost::asio::coroutine coro{};
+   asio::coroutine coro{};
 
    template <class Self>
    void operator()(
       Self& self,
-      boost::system::error_code ec = {},
+      asio::error_code ec = {},
       std::size_t = 0)
    {
       reenter (coro)
@@ -450,11 +450,11 @@ struct run_op {
 template <class Conn>
 struct writer_op {
    Conn* conn;
-   boost::asio::coroutine coro{};
+   asio::coroutine coro{};
 
    template <class Self>
    void operator()( Self& self
-                  , boost::system::error_code ec = {}
+                  , asio::error_code ec = {}
                   , std::size_t n = 0)
    {
       boost::ignore_unused(n);
@@ -464,7 +464,7 @@ struct writer_op {
          while (!conn->reqs_.empty() && conn->cmds_ == 0 && conn->write_buffer_.empty()) {
             conn->coalesce_requests();
             yield
-            boost::asio::async_write(conn->next_layer(), boost::asio::buffer(conn->write_buffer_), std::move(self));
+            asio::async_write(conn->next_layer(), asio::buffer(conn->write_buffer_), std::move(self));
             AEDIS_CHECK_OP0(conn->cancel(operation::run));
 
             conn->on_write();
@@ -493,11 +493,11 @@ struct writer_op {
 template <class Conn>
 struct reader_op {
    Conn* conn;
-   boost::asio::coroutine coro{};
+   asio::coroutine coro{};
 
    template <class Self>
    void operator()( Self& self
-                  , boost::system::error_code ec = {}
+                  , asio::error_code ec = {}
                   , std::size_t n = 0)
    {
       boost::ignore_unused(n);
@@ -505,7 +505,7 @@ struct reader_op {
       reenter (coro) for (;;)
       {
          yield
-         boost::asio::async_read_until(
+         asio::async_read_until(
             conn->next_layer(),
             conn->make_dynamic_buffer(),
             "\r\n", std::move(self));
@@ -530,27 +530,27 @@ struct reader_op {
          //    one. This may happen if for example, subscribe with
          //    wrong syntax.
          //
-         BOOST_ASSERT(!conn->read_buffer_.empty());
+         ASIO_ASSERT(!conn->read_buffer_.empty());
          if (resp3::to_type(conn->read_buffer_.front()) == resp3::type::push
              || conn->reqs_.empty()
              || (!conn->reqs_.empty() && conn->reqs_.front()->get_number_of_commands() == 0)) {
             yield async_send_receive(conn->push_channel_, std::move(self));
             if (!conn->is_open() || ec || is_cancelled(self)) {
                conn->cancel(operation::run);
-               self.complete(boost::asio::error::basic_errors::operation_aborted);
+               self.complete(asio::error::basic_errors::operation_aborted);
                return;
             }
          } else {
-            BOOST_ASSERT(conn->cmds_ != 0);
-            BOOST_ASSERT(!conn->reqs_.empty());
-            BOOST_ASSERT(conn->reqs_.front()->get_number_of_commands() != 0);
+            ASIO_ASSERT(conn->cmds_ != 0);
+            ASIO_ASSERT(!conn->reqs_.empty());
+            ASIO_ASSERT(conn->reqs_.front()->get_number_of_commands() != 0);
             conn->reqs_.front()->proceed();
             yield conn->read_timer_.async_wait(std::move(self));
             if (!conn->is_open() || is_cancelled(self)) {
                // Added this cancel here to make sure any outstanding
                // ping is cancelled.
                conn->cancel(operation::run);
-               self.complete(boost::asio::error::basic_errors::operation_aborted);
+               self.complete(asio::error::basic_errors::operation_aborted);
                return;
             }
          }
@@ -560,5 +560,5 @@ struct reader_op {
 
 } // aedis::detail
 
-#include <boost/asio/unyield.hpp>
+#include <asio/unyield.hpp>
 #endif // AEDIS_CONNECTION_OPS_HPP

@@ -11,20 +11,20 @@
 #include <limits>
 #include <system_error>
 
-#include <boost/assert.hpp>
-#include <boost/utility/string_view.hpp>
+#include <asio/detail/assert.hpp>
+#include <string_view>
 
 #include <aedis/error.hpp>
 #include <aedis/resp3/node.hpp>
 
 namespace aedis::resp3::detail {
 
-auto parse_uint(char const* data, std::size_t size, boost::system::error_code& ec) -> std::size_t;
+auto parse_uint(char const* data, std::size_t size, asio::error_code& ec) -> std::size_t;
 
 template <class ResponseAdapter>
 class parser {
 private:
-   using node_type = node<boost::string_view>;
+   using node_type = node<std::string_view>;
    static constexpr std::size_t max_embedded_depth = 5;
 
    ResponseAdapter adapter_;
@@ -55,14 +55,14 @@ public:
 
    // Returns the number of bytes that have been consumed.
    auto
-   consume(char const* data, std::size_t n, boost::system::error_code& ec) -> std::size_t
+   consume(char const* data, std::size_t n, asio::error_code& ec) -> std::size_t
    {
       if (bulk_ != type::invalid) {
          n = bulk_length_ + 2;
          switch (bulk_) {
             case type::streamed_string_part:
             {
-               BOOST_ASSERT(bulk_length_ != 0);
+               ASIO_ASSERT(bulk_length_ != 0);
                adapter_({bulk_, 1, depth_, {data, bulk_length_}}, ec);
                if (ec)
                   return 0;

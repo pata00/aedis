@@ -9,10 +9,10 @@
 
 #include <array>
 
-#include <boost/assert.hpp>
+#include <asio/detail/assert.hpp>
 #include <boost/system.hpp>
-#include <boost/asio/experimental/parallel_group.hpp>
-#include <boost/asio/yield.hpp>
+#include <asio/experimental/parallel_group.hpp>
+#include <asio/yield.hpp>
 
 namespace aedis::ssl::detail
 {
@@ -21,29 +21,29 @@ template <class Stream>
 struct handshake_op {
    Stream* stream;
    aedis::detail::conn_timer_t<typename Stream::executor_type>* timer;
-   boost::asio::coroutine coro{};
+   asio::coroutine coro{};
 
    template <class Self>
    void operator()( Self& self
                   , std::array<std::size_t, 2> order = {}
-                  , boost::system::error_code ec1 = {}
-                  , boost::system::error_code ec2 = {})
+                  , asio::error_code ec1 = {}
+                  , asio::error_code ec2 = {})
    {
       reenter (coro)
       {
          yield
-         boost::asio::experimental::make_parallel_group(
+         asio::experimental::make_parallel_group(
             [this](auto token)
             {
-               return stream->async_handshake(boost::asio::ssl::stream_base::client, token);
+               return stream->async_handshake(asio::ssl::stream_base::client, token);
             },
             [this](auto token) { return timer->async_wait(token);}
          ).async_wait(
-            boost::asio::experimental::wait_for_one(),
+            asio::experimental::wait_for_one(),
             std::move(self));
 
          if (is_cancelled(self)) {
-            self.complete(boost::asio::error::operation_aborted);
+            self.complete(asio::error::operation_aborted);
             return;
          }
 
@@ -51,12 +51,12 @@ struct handshake_op {
             case 0: self.complete(ec1); return;
             case 1:
             {
-               BOOST_ASSERT_MSG(!ec2, "handshake_op: Incompatible state.");
+               ASIO_ASSERT_MSG(!ec2, "handshake_op: Incompatible state.");
                self.complete(error::ssl_handshake_timeout);
                return;
             }
 
-            default: BOOST_ASSERT(false);
+            default: ASIO_ASSERT(false);
          }
       }
    }
@@ -71,24 +71,24 @@ auto async_handshake(
       aedis::detail::conn_timer_t<typename Stream::executor_type>& timer,
       CompletionToken&& token)
 {
-   return boost::asio::async_compose
+   return asio::async_compose
       < CompletionToken
-      , void(boost::system::error_code)
+      , void(asio::error_code)
       >(handshake_op<Stream>{&stream, &timer}, token, stream, timer);
 }
 
 template <class Conn, class Timer>
 struct ssl_connect_with_timeout_op {
    Conn* conn = nullptr;
-   boost::asio::ip::tcp::resolver::results_type const* endpoints = nullptr;
+   asio::ip::tcp::resolver::results_type const* endpoints = nullptr;
    typename Conn::timeouts ts;
    Timer* timer = nullptr;
-   boost::asio::coroutine coro{};
+   asio::coroutine coro{};
 
    template <class Self>
    void operator()( Self& self
-                  , boost::system::error_code ec = {}
-                  , boost::asio::ip::tcp::endpoint const& = {})
+                  , asio::error_code ec = {}
+                  , asio::ip::tcp::endpoint const& = {})
    {
       reenter (coro)
       {
@@ -109,5 +109,5 @@ struct ssl_connect_with_timeout_op {
 
 } // aedis::ssl::detail
  
-#include <boost/asio/unyield.hpp>
+#include <asio/unyield.hpp>
 #endif // AEDIS_SSL_CONNECTION_OPS_HPP

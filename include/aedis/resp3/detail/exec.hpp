@@ -7,20 +7,20 @@
 #ifndef AEDIS_RESP3_EXEC_HPP
 #define AEDIS_RESP3_EXEC_HPP
 
-#include <boost/assert.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/read.hpp>
-#include <boost/asio/write.hpp>
-#include <boost/asio/coroutine.hpp>
-#include <boost/asio/compose.hpp>
-#include <boost/asio/steady_timer.hpp>
-#include <boost/asio/experimental/parallel_group.hpp>
+#include <asio/detail/assert.hpp>
+#include <asio/ip/tcp.hpp>
+#include <asio/read.hpp>
+#include <asio/write.hpp>
+#include <asio/coroutine.hpp>
+#include <asio/compose.hpp>
+#include <asio/steady_timer.hpp>
+#include <asio/experimental/parallel_group.hpp>
 
 #include <aedis/error.hpp>
 #include <aedis/resp3/read.hpp>
 #include <aedis/resp3/request.hpp>
 
-#include <boost/asio/yield.hpp>
+#include <asio/yield.hpp>
 
 namespace aedis::resp3::detail {
 
@@ -36,20 +36,20 @@ struct exec_op {
    DynamicBuffer dbuf{};
    std::size_t n_cmds = 0;
    std::size_t size = 0;
-   boost::asio::coroutine coro{};
+   asio::coroutine coro{};
 
    template <class Self>
    void operator()( Self& self
-                  , boost::system::error_code ec = {}
+                  , asio::error_code ec = {}
                   , std::size_t n = 0)
    {
       reenter (coro) for (;;)
       {
          if (req) {
             yield
-            boost::asio::async_write(
+            asio::async_write(
                *socket,
-               boost::asio::buffer(req->payload()),
+               asio::buffer(req->payload()),
                std::move(self));
             AEDIS_CHECK_OP1();
 
@@ -77,7 +77,7 @@ template <
    class AsyncStream,
    class Adapter,
    class DynamicBuffer,
-   class CompletionToken = boost::asio::default_completion_token_t<typename AsyncStream::executor_type>
+   class CompletionToken = asio::default_completion_token_t<typename AsyncStream::executor_type>
    >
 auto async_exec(
    AsyncStream& socket,
@@ -86,9 +86,9 @@ auto async_exec(
    DynamicBuffer dbuf,
    CompletionToken token = CompletionToken{})
 {
-   return boost::asio::async_compose
+   return asio::async_compose
       < CompletionToken
-      , void(boost::system::error_code, std::size_t)
+      , void(asio::error_code, std::size_t)
       >(detail::exec_op<AsyncStream, Adapter, DynamicBuffer>
          {&socket, &req, adapter, dbuf, req.size()}, token, socket);
 }
@@ -105,27 +105,27 @@ struct exec_with_timeout_op {
    request const* req = nullptr;
    Adapter adapter;
    DynamicBuffer dbuf{};
-   boost::asio::coroutine coro{};
+   asio::coroutine coro{};
 
    template <class Self>
    void operator()( Self& self
                   , std::array<std::size_t, 2> order = {}
-                  , boost::system::error_code ec1 = {}
+                  , asio::error_code ec1 = {}
                   , std::size_t n = 0
-                  , boost::system::error_code ec2 = {})
+                  , asio::error_code ec2 = {})
    {
       reenter (coro)
       {
          yield
-         boost::asio::experimental::make_parallel_group(
+         asio::experimental::make_parallel_group(
             [this](auto token) { return detail::async_exec(*socket, *req, adapter, dbuf, token);},
             [this](auto token) { return timer->async_wait(token);}
          ).async_wait(
-            boost::asio::experimental::wait_for_one(),
+            asio::experimental::wait_for_one(),
             std::move(self));
 
          if (is_cancelled(self)) {
-            self.complete(boost::asio::error::operation_aborted, 0);
+            self.complete(asio::error::operation_aborted, 0);
             return;
          }
 
@@ -141,7 +141,7 @@ struct exec_with_timeout_op {
 
             } break;
 
-            default: BOOST_ASSERT(false);
+            default: ASIO_ASSERT(false);
          }
       }
    }
@@ -152,7 +152,7 @@ template <
    class Timer,
    class Adapter,
    class DynamicBuffer,
-   class CompletionToken = boost::asio::default_completion_token_t<typename AsyncStream::executor_type>
+   class CompletionToken = asio::default_completion_token_t<typename AsyncStream::executor_type>
    >
 auto async_exec(
    AsyncStream& socket,
@@ -162,14 +162,14 @@ auto async_exec(
    DynamicBuffer dbuf,
    CompletionToken token = CompletionToken{})
 {
-   return boost::asio::async_compose
+   return asio::async_compose
       < CompletionToken
-      , void(boost::system::error_code, std::size_t)
+      , void(asio::error_code, std::size_t)
       >(detail::exec_with_timeout_op<AsyncStream, Timer, Adapter, DynamicBuffer>
          {&socket, &timer, &req, adapter, dbuf}, token, socket, timer);
 }
 
 } // aedis::resp3::detail
 
-#include <boost/asio/unyield.hpp>
+#include <asio/unyield.hpp>
 #endif // AEDIS_RESP3_EXEC_HPP

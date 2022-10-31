@@ -7,7 +7,7 @@
 #ifndef AEDIS_ERROR_HPP
 #define AEDIS_ERROR_HPP
 
-#include <boost/system/error_code.hpp>
+#include <asio/error_code.hpp>
 
 namespace aedis {
 
@@ -91,7 +91,7 @@ enum class error
  *  \param e Error code.
  *  \ingroup any
  */
-auto make_error_code(error e) -> boost::system::error_code;
+auto make_error_code(error e) -> asio::error_code;
 
 } // aedis
 

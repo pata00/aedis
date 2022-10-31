@@ -19,10 +19,10 @@
 #include <vector>
 #include <array>
 
-#include <boost/assert.hpp>
+#include <asio/detail/assert.hpp>
 #include <boost/spirit/include/qi.hpp>
 #include <boost/spirit/home/x3.hpp>
-#include <boost/utility/string_view.hpp>
+#include <string_view>
 
 #include <aedis/error.hpp>
 #include <aedis/resp3/type.hpp>
@@ -36,7 +36,7 @@ inline
 auto parse_double(
    char const* data,
    std::size_t size,
-   boost::system::error_code& ec) -> double
+   asio::error_code& ec) -> double
 {
    static constexpr boost::spirit::x3::real_parser<double> p{};
    double ret = 0;
@@ -51,8 +51,8 @@ auto parse_double(
 template <class T>
 auto from_bulk(
    T& i,
-   boost::string_view sv,
-   boost::system::error_code& ec) -> typename std::enable_if<std::is_integral<T>::value, void>::type
+   std::string_view sv,
+   asio::error_code& ec) -> typename std::enable_if<std::is_integral<T>::value, void>::type
 {
    i = resp3::detail::parse_uint(sv.data(), sv.size(), ec);
 }
@@ -60,8 +60,8 @@ auto from_bulk(
 inline
 void from_bulk(
    bool& t,
-   boost::string_view sv,
-   boost::system::error_code&)
+   std::string_view sv,
+   asio::error_code&)
 {
    t = *sv.data() == 't';
 }
@@ -69,8 +69,8 @@ void from_bulk(
 inline
 void from_bulk(
    double& d,
-   boost::string_view sv,
-   boost::system::error_code& ec)
+   std::string_view sv,
+   asio::error_code& ec)
 {
    d = parse_double(sv.data(), sv.size(), ec);
 }
@@ -79,8 +79,8 @@ template <class CharT, class Traits, class Allocator>
 void
 from_bulk(
    std::basic_string<CharT, Traits, Allocator>& s,
-   boost::string_view sv,
-   boost::system::error_code&)
+   std::string_view sv,
+   asio::error_code&)
 {
   s.append(sv.data(), sv.size());
 }
@@ -88,7 +88,7 @@ from_bulk(
 //================================================
 
 inline
-void set_on_resp3_error(resp3::type t, boost::system::error_code& ec)
+void set_on_resp3_error(resp3::type t, asio::error_code& ec)
 {
    switch (t) {
       case resp3::type::simple_error: ec = error::resp3_simple_error; return;
@@ -105,7 +105,7 @@ private:
 
 public:
    explicit general_aggregate(Result* c = nullptr): result_(c) {}
-   void operator()(resp3::node<boost::string_view> const& n, boost::system::error_code&)
+   void operator()(resp3::node<std::string_view> const& n, asio::error_code&)
    {
       result_->push_back({n.data_type, n.aggregate_size, n.depth, std::string{std::cbegin(n.value), std::cend(n.value)}});
    }
@@ -119,7 +119,7 @@ private:
 public:
    explicit general_simple(Node* t = nullptr) : result_(t) {}
 
-   void operator()(resp3::node<boost::string_view> const& n, boost::system::error_code& ec)
+   void operator()(resp3::node<std::string_view> const& n, asio::error_code& ec)
    {
       result_->data_type = n.data_type;
       result_->aggregate_size = n.aggregate_size;
@@ -137,8 +137,8 @@ public:
    void
    operator()(
       Result& result,
-      resp3::node<boost::string_view> const& n,
-      boost::system::error_code& ec)
+      resp3::node<std::string_view> const& n,
+      asio::error_code& ec)
    {
       set_on_resp3_error(n.data_type, ec);
       if (ec)
@@ -165,8 +165,8 @@ public:
    void
    operator()(
       Result& result,
-      resp3::node<boost::string_view> const& nd,
-      boost::system::error_code& ec)
+      resp3::node<std::string_view> const& nd,
+      asio::error_code& ec)
    {
       set_on_resp3_error(nd.data_type, ec);
       if (ec)
@@ -178,7 +178,7 @@ public:
          return;
       }
 
-      BOOST_ASSERT(nd.aggregate_size == 1);
+      ASIO_ASSERT(nd.aggregate_size == 1);
 
       if (nd.depth < 1) {
 	 ec = error::expects_resp3_set;
@@ -204,8 +204,8 @@ public:
    void
    operator()(
       Result& result,
-      resp3::node<boost::string_view> const& nd,
-      boost::system::error_code& ec)
+      resp3::node<std::string_view> const& nd,
+      asio::error_code& ec)
    {
       set_on_resp3_error(nd.data_type, ec);
       if (ec)
@@ -217,7 +217,7 @@ public:
          return;
       }
 
-      BOOST_ASSERT(nd.aggregate_size == 1);
+      ASIO_ASSERT(nd.aggregate_size == 1);
 
       if (nd.depth < 1) {
 	 ec = error::expects_resp3_map;
@@ -246,8 +246,8 @@ public:
    void
    operator()(
       Result& result,
-      resp3::node<boost::string_view> const& nd,
-      boost::system::error_code& ec)
+      resp3::node<std::string_view> const& nd,
+      asio::error_code& ec)
    {
       set_on_resp3_error(nd.data_type, ec);
       if (ec)
@@ -274,8 +274,8 @@ public:
    void
    operator()(
       Result& result,
-      resp3::node<boost::string_view> const& nd,
-      boost::system::error_code& ec)
+      resp3::node<std::string_view> const& nd,
+      asio::error_code& ec)
    {
       set_on_resp3_error(nd.data_type, ec);
       if (ec)
@@ -297,7 +297,7 @@ public:
             return;
          }
 
-         BOOST_ASSERT(nd.aggregate_size == 1);
+         ASIO_ASSERT(nd.aggregate_size == 1);
          from_bulk(result.at(i_), nd.value, ec);
       }
 
@@ -313,15 +313,15 @@ struct list_impl {
    void
    operator()(
       Result& result,
-      resp3::node<boost::string_view> const& nd,
-      boost::system::error_code& ec)
+      resp3::node<std::string_view> const& nd,
+      asio::error_code& ec)
    {
       set_on_resp3_error(nd.data_type, ec);
       if (ec)
          return;
 
       if (!is_aggregate(nd.data_type)) {
-        BOOST_ASSERT(nd.aggregate_size == 1);
+        ASIO_ASSERT(nd.aggregate_size == 1);
         if (nd.depth < 1) {
            ec = error::expects_resp3_aggregate;
            return;
@@ -388,10 +388,10 @@ public:
 
    void
    operator()(
-      resp3::node<boost::string_view> const& nd,
-      boost::system::error_code& ec)
+      resp3::node<std::string_view> const& nd,
+      asio::error_code& ec)
    {
-      BOOST_ASSERT(result_);
+      ASIO_ASSERT(result_);
       impl_(*result_, nd, ec);
    }
 };
@@ -407,8 +407,8 @@ public:
 
    void
    operator()(
-      resp3::node<boost::string_view> const& nd,
-      boost::system::error_code& ec)
+      resp3::node<std::string_view> const& nd,
+      asio::error_code& ec)
    {
       if (nd.data_type == resp3::type::null)
          return;

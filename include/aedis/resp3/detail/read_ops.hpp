@@ -7,43 +7,43 @@
 #ifndef AEDIS_RESP3_READ_OPS_HPP
 #define AEDIS_RESP3_READ_OPS_HPP
 
-#include <boost/assert.hpp>
-#include <boost/asio/read.hpp>
-#include <boost/asio/read_until.hpp>
-#include <boost/asio/coroutine.hpp>
+#include <asio/detail/assert.hpp>
+#include <asio/read.hpp>
+#include <asio/read_until.hpp>
+#include <asio/coroutine.hpp>
 #include <boost/core/ignore_unused.hpp>
-#include <boost/utility/string_view.hpp>
+#include <string_view>
 #include <aedis/resp3/detail/parser.hpp>
 
-#include <boost/asio/yield.hpp>
+#include <asio/yield.hpp>
 
 namespace aedis::detail
 {
 template <class T>
 auto is_cancelled(T const& self)
 {
-   return self.get_cancellation_state().cancelled() != boost::asio::cancellation_type_t::none;
+   return self.get_cancellation_state().cancelled() != asio::cancellation_type_t::none;
 }
 }
 
 #define AEDIS_CHECK_OP0(X)\
    if (ec || aedis::detail::is_cancelled(self)) {\
       X;\
-      self.complete(!!ec ? ec : boost::asio::error::operation_aborted);\
+      self.complete(!!ec ? ec : asio::error::operation_aborted);\
       return;\
    }
 
 #define AEDIS_CHECK_OP1(X)\
    if (ec || aedis::detail::is_cancelled(self)) {\
       X;\
-      self.complete(!!ec ? ec : boost::asio::error::operation_aborted, {});\
+      self.complete(!!ec ? ec : asio::error::operation_aborted, {});\
       return;\
    }
 
 namespace aedis::resp3::detail {
 
 struct ignore_response {
-   void operator()(node<boost::string_view> nd, boost::system::error_code& ec)
+   void operator()(node<std::string_view> nd, asio::error_code& ec)
    {
       switch (nd.data_type) {
          case resp3::type::simple_error: ec = error::resp3_simple_error; return;
@@ -64,7 +64,7 @@ private:
    parser<ResponseAdapter> parser_;
    std::size_t consumed_ = 0;
    std::size_t buffer_size_ = 0;
-   boost::asio::coroutine coro_{};
+   asio::coroutine coro_{};
 
 public:
    parse_op(AsyncReadStream& stream, DynamicBuffer buf, ResponseAdapter adapter)
@@ -75,13 +75,13 @@ public:
 
    template <class Self>
    void operator()( Self& self
-                  , boost::system::error_code ec = {}
+                  , asio::error_code ec = {}
                   , std::size_t n = 0)
    {
       reenter (coro_) for (;;) {
          if (parser_.bulk() == type::invalid) {
             yield
-            boost::asio::async_read_until(stream_, buf_, "\r\n", std::move(self));
+            asio::async_read_until(stream_, buf_, "\r\n", std::move(self));
             AEDIS_CHECK_OP1();
          } else {
 	    // On a bulk read we can't read until delimiter since the
@@ -96,16 +96,16 @@ public:
                buf_.grow(parser_.bulk_length() + 2 - buffer_size_);
 
                yield
-               boost::asio::async_read(
+               asio::async_read(
                   stream_,
                   buf_.data(buffer_size_, parser_.bulk_length() + 2 - buffer_size_),
-                  boost::asio::transfer_all(),
+                  asio::transfer_all(),
                   std::move(self));
                AEDIS_CHECK_OP1();
             }
 
             n = parser_.bulk_length() + 2;
-            BOOST_ASSERT(buf_.size() >= n);
+            ASIO_ASSERT(buf_.size() >= n);
          }
 
          n = parser_.consume(static_cast<char const*>(buf_.data(0, n).data()), n, ec);
@@ -126,5 +126,5 @@ public:
 
 } // aedis::resp3::detail
 
-#include <boost/asio/unyield.hpp>
+#include <asio/unyield.hpp>
 #endif // AEDIS_RESP3_READ_OPS_HPP

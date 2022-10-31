@@ -11,9 +11,9 @@
 #include <aedis/resp3/detail/parser.hpp>
 #include <aedis/resp3/detail/read_ops.hpp>
 
-#include <boost/asio/read.hpp>
-#include <boost/asio/compose.hpp>
-#include <boost/asio/async_result.hpp>
+#include <asio/read.hpp>
+#include <asio/compose.hpp>
+#include <asio/async_result.hpp>
 
 namespace aedis::resp3 {
 
@@ -57,14 +57,14 @@ read(
    SyncReadStream& stream,
    DynamicBuffer buf,
    ResponseAdapter adapter,
-   boost::system::error_code& ec) -> std::size_t
+   asio::error_code& ec) -> std::size_t
 {
    detail::parser<ResponseAdapter> p {adapter};
    std::size_t n = 0;
    std::size_t consumed = 0;
    do {
       if (p.bulk() == type::invalid) {
-	 n = boost::asio::read_until(stream, buf, "\r\n", ec);
+	 n = asio::read_until(stream, buf, "\r\n", ec);
 	 if (ec)
 	    return 0;
 
@@ -74,7 +74,7 @@ read(
 	 if (s < (l + 2)) {
 	    auto const to_read = l + 2 - s;
 	    buf.grow(to_read);
-	    n = boost::asio::read(stream, buf.data(s, to_read), ec);
+	    n = asio::read(stream, buf.data(s, to_read), ec);
 	    if (ec)
 	       return 0;
 	 }
@@ -107,7 +107,7 @@ read(
    DynamicBuffer buf,
    ResponseAdapter adapter = ResponseAdapter{})
 {
-   boost::system::error_code ec;
+   asio::error_code ec;
    auto const n = resp3::read(stream, buf, adapter, ec);
 
    if (ec)
@@ -147,7 +147,7 @@ read(
  *  following signature
  *
  *  @code
- *  void(boost::system::error_code, std::size_t);
+ *  void(asio::error_code, std::size_t);
  *  @endcode
  *
  *  \remark This function calls buf.consume() in each chunk of data
@@ -158,18 +158,18 @@ template <
    class AsyncReadStream,
    class DynamicBuffer,
    class ResponseAdapter = detail::ignore_response,
-   class CompletionToken = boost::asio::default_completion_token_t<typename AsyncReadStream::executor_type>
+   class CompletionToken = asio::default_completion_token_t<typename AsyncReadStream::executor_type>
    >
 auto async_read(
    AsyncReadStream& stream,
    DynamicBuffer buffer,
    ResponseAdapter adapter = ResponseAdapter{},
    CompletionToken&& token =
-      boost::asio::default_completion_token_t<typename AsyncReadStream::executor_type>{})
+      asio::default_completion_token_t<typename AsyncReadStream::executor_type>{})
 {
-   return boost::asio::async_compose
+   return asio::async_compose
       < CompletionToken
-      , void(boost::system::error_code, std::size_t)
+      , void(asio::error_code, std::size_t)
       >(detail::parse_op<AsyncReadStream, DynamicBuffer, ResponseAdapter> {stream, buffer, adapter},
         token,
         stream);

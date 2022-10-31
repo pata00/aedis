@@ -10,17 +10,17 @@
 #include <array>
 
 #include <boost/system.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/connect.hpp>
-#include <boost/assert.hpp>
-#include <boost/asio/experimental/parallel_group.hpp>
+#include <asio/ip/tcp.hpp>
+#include <asio/connect.hpp>
+#include <asio/detail/assert.hpp>
+#include <asio/experimental/parallel_group.hpp>
 
-#include <boost/asio/yield.hpp>
+#include <asio/yield.hpp>
 
 namespace aedis::detail {
 
 template <class Executor>
-using conn_timer_t = boost::asio::basic_waitable_timer<std::chrono::steady_clock, boost::asio::wait_traits<std::chrono::steady_clock>, Executor>;
+using conn_timer_t = asio::basic_waitable_timer<std::chrono::steady_clock, asio::wait_traits<std::chrono::steady_clock>, Executor>;
 
 template <
    class Stream,
@@ -30,31 +30,31 @@ struct connect_op {
    Stream* socket;
    conn_timer_t<typename Stream::executor_type>* timer;
    EndpointSequence* endpoints;
-   boost::asio::coroutine coro{};
+   asio::coroutine coro{};
 
    template <class Self>
    void operator()( Self& self
                   , std::array<std::size_t, 2> order = {}
-                  , boost::system::error_code ec1 = {}
+                  , asio::error_code ec1 = {}
                   , typename Stream::protocol_type::endpoint const& ep = {}
-                  , boost::system::error_code ec2 = {})
+                  , asio::error_code ec2 = {})
    {
       reenter (coro)
       {
          yield
-         boost::asio::experimental::make_parallel_group(
+         asio::experimental::make_parallel_group(
             [this](auto token)
             {
-               auto f = [](boost::system::error_code const&, auto const&) { return true; };
-               return boost::asio::async_connect(*socket, *endpoints, f, token);
+               auto f = [](asio::error_code const&, auto const&) { return true; };
+               return asio::async_connect(*socket, *endpoints, f, token);
             },
             [this](auto token) { return timer->async_wait(token);}
          ).async_wait(
-            boost::asio::experimental::wait_for_one(),
+            asio::experimental::wait_for_one(),
             std::move(self));
 
          if (is_cancelled(self)) {
-            self.complete(boost::asio::error::operation_aborted, {});
+            self.complete(asio::error::operation_aborted, {});
             return;
          }
 
@@ -70,7 +70,7 @@ struct connect_op {
                return;
             }
 
-            default: BOOST_ASSERT(false);
+            default: ASIO_ASSERT(false);
          }
       }
    }
@@ -80,29 +80,29 @@ template <class Resolver, class Timer>
 struct resolve_op {
    Resolver* resv;
    Timer* timer;
-   boost::string_view host;
-   boost::string_view port;
-   boost::asio::coroutine coro{};
+   std::string_view host;
+   std::string_view port;
+   asio::coroutine coro{};
 
    template <class Self>
    void operator()( Self& self
                   , std::array<std::size_t, 2> order = {}
-                  , boost::system::error_code ec1 = {}
-                  , boost::asio::ip::tcp::resolver::results_type res = {}
-                  , boost::system::error_code ec2 = {})
+                  , asio::error_code ec1 = {}
+                  , asio::ip::tcp::resolver::results_type res = {}
+                  , asio::error_code ec2 = {})
    {
       reenter (coro)
       {
          yield
-         boost::asio::experimental::make_parallel_group(
+         asio::experimental::make_parallel_group(
             [this](auto token) { return resv->async_resolve(host.data(), port.data(), token);},
             [this](auto token) { return timer->async_wait(token);}
          ).async_wait(
-            boost::asio::experimental::wait_for_one(),
+            asio::experimental::wait_for_one(),
             std::move(self));
 
          if (is_cancelled(self)) {
-            self.complete(boost::asio::error::operation_aborted, {});
+            self.complete(asio::error::operation_aborted, {});
             return;
          }
 
@@ -119,7 +119,7 @@ struct resolve_op {
                return;
             }
 
-            default: BOOST_ASSERT(false);
+            default: ASIO_ASSERT(false);
          }
       }
    }
@@ -128,17 +128,17 @@ struct resolve_op {
 template <class Channel>
 struct send_receive_op {
    Channel* channel;
-   boost::asio::coroutine coro{};
+   asio::coroutine coro{};
 
    template <class Self>
    void operator()( Self& self
-                  , boost::system::error_code ec = {}
+                  , asio::error_code ec = {}
                   , std::size_t = 0)
    {
       reenter (coro)
       {
          yield
-         channel->async_send(boost::system::error_code{}, 0, std::move(self));
+         channel->async_send(asio::error_code{}, 0, std::move(self));
          AEDIS_CHECK_OP1();
 
          yield
@@ -161,9 +161,9 @@ auto async_connect(
       EndpointSequence ep,
       CompletionToken&& token)
 {
-   return boost::asio::async_compose
+   return asio::async_compose
       < CompletionToken
-      , void(boost::system::error_code, typename Stream::protocol_type::endpoint const&)
+      , void(asio::error_code, typename Stream::protocol_type::endpoint const&)
       >(connect_op<Stream, EndpointSequence>
             {&socket, &timer, &ep}, token, socket, timer);
 }
@@ -172,34 +172,34 @@ template <
    class Resolver,
    class Timer,
    class CompletionToken =
-      boost::asio::default_completion_token_t<typename Resolver::executor_type>
+      asio::default_completion_token_t<typename Resolver::executor_type>
    >
 auto async_resolve(
       Resolver& resv,
       Timer& timer,
-      boost::string_view host,
-      boost::string_view port,
+      std::string_view host,
+      std::string_view port,
       CompletionToken&& token = CompletionToken{})
 {
-   return boost::asio::async_compose
+   return asio::async_compose
       < CompletionToken
-      , void(boost::system::error_code, boost::asio::ip::tcp::resolver::results_type)
+      , void(asio::error_code, asio::ip::tcp::resolver::results_type)
       >(resolve_op<Resolver, Timer>{&resv, &timer, host, port}, token, resv, timer);
 }
 
 template <
    class Channel,
    class CompletionToken =
-      boost::asio::default_completion_token_t<typename Channel::executor_type>
+      asio::default_completion_token_t<typename Channel::executor_type>
    >
 auto async_send_receive(Channel& channel, CompletionToken&& token = CompletionToken{})
 {
-   return boost::asio::async_compose
+   return asio::async_compose
       < CompletionToken
-      , void(boost::system::error_code, std::size_t)
+      , void(asio::error_code, std::size_t)
       >(send_receive_op<Channel>{&channel}, token, channel);
 }
 } // aedis::detail
 
-#include <boost/asio/unyield.hpp>
+#include <asio/unyield.hpp>
 #endif // AEDIS_NET_HPP

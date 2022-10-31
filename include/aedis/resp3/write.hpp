@@ -7,7 +7,7 @@
 #ifndef AEDIS_RESP3_WRITE_HPP
 #define AEDIS_RESP3_WRITE_HPP
 
-#include <boost/asio/write.hpp>
+#include <asio/write.hpp>
 
 namespace aedis::resp3 {
 
@@ -23,7 +23,7 @@ template<
    >
 auto write(SyncWriteStream& stream, Request const& req)
 {
-   return boost::asio::write(stream, boost::asio::buffer(req.payload()));
+   return asio::write(stream, asio::buffer(req.payload()));
 }
 
 template<
@@ -33,9 +33,9 @@ template<
 auto write(
     SyncWriteStream& stream,
     Request const& req,
-    boost::system::error_code& ec)
+    asio::error_code& ec)
 {
-   return boost::asio::write(stream, boost::asio::buffer(req.payload()), ec);
+   return asio::write(stream, asio::buffer(req.payload()), ec);
 }
 
 /** \brief Writes a request asynchronously.
@@ -48,15 +48,15 @@ auto write(
 template<
    class AsyncWriteStream,
    class Request,
-   class CompletionToken = boost::asio::default_completion_token_t<typename AsyncWriteStream::executor_type>
+   class CompletionToken = asio::default_completion_token_t<typename AsyncWriteStream::executor_type>
    >
 auto async_write(
    AsyncWriteStream& stream,
    Request const& req,
    CompletionToken&& token =
-      boost::asio::default_completion_token_t<typename AsyncWriteStream::executor_type>{})
+      asio::default_completion_token_t<typename AsyncWriteStream::executor_type>{})
 {
-   return boost::asio::async_write(stream, boost::asio::buffer(req.payload()), token);
+   return asio::async_write(stream, asio::buffer(req.payload()), token);
 }
 
 } // aedis::resp3

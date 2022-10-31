@@ -14,11 +14,11 @@
 #include <memory>
 #include <type_traits>
 
-#include <boost/assert.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/steady_timer.hpp>
-#include <boost/asio/bind_executor.hpp>
-#include <boost/asio/experimental/channel.hpp>
+#include <asio/detail/assert.hpp>
+#include <asio/ip/tcp.hpp>
+#include <asio/steady_timer.hpp>
+#include <asio/bind_executor.hpp>
+#include <asio/experimental/channel.hpp>
 
 #include <aedis/adapt.hpp>
 #include <aedis/operation.hpp>
@@ -85,7 +85,7 @@ public:
             push_channel_.cancel();
             return 1U;
          }
-         default: BOOST_ASSERT(false); return 0;
+         default: ASIO_ASSERT(false); return 0;
       }
    }
 
@@ -93,7 +93,7 @@ public:
    {
       auto f = [](auto const& ptr)
       {
-         BOOST_ASSERT(ptr != nullptr);
+         ASIO_ASSERT(ptr != nullptr);
          return ptr->is_written();
       };
 
@@ -113,7 +113,7 @@ public:
    {
       auto cond = [](auto const& ptr)
       {
-         BOOST_ASSERT(ptr != nullptr);
+         ASIO_ASSERT(ptr != nullptr);
 
          if (ptr->get_request().get_config().cancel_on_connection_lost)
             return false;
@@ -138,31 +138,31 @@ public:
 
    template <
       class Adapter = detail::response_traits<void>::adapter_type,
-      class CompletionToken = boost::asio::default_completion_token_t<executor_type>>
+      class CompletionToken = asio::default_completion_token_t<executor_type>>
    auto async_exec(
       resp3::request const& req,
       Adapter adapter = adapt(),
       CompletionToken token = CompletionToken{})
    {
-      BOOST_ASSERT_MSG(req.size() <= adapter.get_supported_response_size(), "Request and adapter have incompatible sizes.");
+      ASIO_ASSERT_MSG(req.size() <= adapter.get_supported_response_size(), "Request and adapter have incompatible sizes.");
 
-      return boost::asio::async_compose
+      return asio::async_compose
          < CompletionToken
-         , void(boost::system::error_code, std::size_t)
+         , void(asio::error_code, std::size_t)
          >(detail::exec_op<Derived, Adapter>{&derived(), &req, adapter}, token, resv_);
    }
 
    template <
       class Adapter = detail::response_traits<void>::adapter_type,
-      class CompletionToken = boost::asio::default_completion_token_t<executor_type>>
+      class CompletionToken = asio::default_completion_token_t<executor_type>>
    auto async_receive(
       Adapter adapter = adapt(),
       CompletionToken token = CompletionToken{})
    {
       auto f = detail::make_adapter_wrapper(adapter);
-      return boost::asio::async_compose
+      return asio::async_compose
          < CompletionToken
-         , void(boost::system::error_code, std::size_t)
+         , void(asio::error_code, std::size_t)
          >(detail::receive_op<Derived, decltype(f)>{&derived(), f}, token, resv_);
    }
 
@@ -171,18 +171,18 @@ public:
    async_run(endpoint ep, Timeouts ts, CompletionToken token)
    {
       ep_ = std::move(ep);
-      return boost::asio::async_compose
+      return asio::async_compose
          < CompletionToken
-         , void(boost::system::error_code)
+         , void(asio::error_code)
          >(detail::run_op<Derived, Timeouts>{&derived(), ts}, token, resv_);
    }
 
 private:
    using clock_type = std::chrono::steady_clock;
-   using clock_traits_type = boost::asio::wait_traits<clock_type>;
-   using timer_type = boost::asio::basic_waitable_timer<clock_type, clock_traits_type, executor_type>;
-   using resolver_type = boost::asio::ip::basic_resolver<boost::asio::ip::tcp, executor_type>;
-   using push_channel_type = boost::asio::experimental::channel<executor_type, void(boost::system::error_code, std::size_t)>;
+   using clock_traits_type = asio::wait_traits<clock_type>;
+   using timer_type = asio::basic_waitable_timer<clock_type, clock_traits_type, executor_type>;
+   using resolver_type = asio::ip::basic_resolver<asio::ip::tcp, executor_type>;
+   using push_channel_type = asio::experimental::channel<executor_type, void(asio::error_code, std::size_t)>;
    using time_point_type = std::chrono::time_point<std::chrono::steady_clock>;
 
    auto derived() -> Derived& { return static_cast<Derived&>(*this); }
@@ -317,7 +317,7 @@ private:
    }
 
    auto make_dynamic_buffer(std::size_t max_read_size = 512)
-      { return boost::asio::dynamic_buffer(read_buffer_, max_read_size); }
+      { return asio::dynamic_buffer(read_buffer_, max_read_size); }
 
    template <class CompletionToken>
    auto
@@ -325,9 +325,9 @@ private:
       std::chrono::steady_clock::duration d,
       CompletionToken&& token)
    {
-      return boost::asio::async_compose
+      return asio::async_compose
          < CompletionToken
-         , void(boost::system::error_code)
+         , void(asio::error_code)
          >(detail::resolve_with_timeout_op<this_type>{this, d},
             token, resv_);
    }
@@ -335,18 +335,18 @@ private:
    template <class CompletionToken>
    auto reader(CompletionToken&& token)
    {
-      return boost::asio::async_compose
+      return asio::async_compose
          < CompletionToken
-         , void(boost::system::error_code)
+         , void(asio::error_code)
          >(detail::reader_op<Derived>{&derived()}, token, resv_.get_executor());
    }
 
    template <class CompletionToken>
    auto writer(CompletionToken&& token)
    {
-      return boost::asio::async_compose
+      return asio::async_compose
          < CompletionToken
-         , void(boost::system::error_code)
+         , void(asio::error_code)
          >(detail::writer_op<Derived>{&derived()}, token, resv_.get_executor());
    }
 
@@ -355,9 +355,9 @@ private:
       class CompletionToken>
    auto async_start(Timeouts ts, CompletionToken&& token)
    {
-      return boost::asio::async_compose
+      return asio::async_compose
          < CompletionToken
-         , void(boost::system::error_code)
+         , void(asio::error_code)
          >(detail::start_op<this_type, Timeouts>{this, ts}, token, resv_);
    }
 
@@ -367,9 +367,9 @@ private:
       std::chrono::steady_clock::duration d,
       CompletionToken&& token)
    {
-      return boost::asio::async_compose
+      return asio::async_compose
          < CompletionToken
-         , void(boost::system::error_code)
+         , void(asio::error_code)
          >(detail::ping_op<Derived>{&derived(), d}, token, resv_);
    }
 
@@ -379,18 +379,18 @@ private:
       std::chrono::steady_clock::duration d,
       CompletionToken&& token)
    {
-      return boost::asio::async_compose
+      return asio::async_compose
          < CompletionToken
-         , void(boost::system::error_code)
+         , void(asio::error_code)
          >(detail::check_idle_op<Derived>{&derived(), d}, token, check_idle_timer_);
    }
 
    template <class Adapter, class CompletionToken>
    auto async_exec_read(Adapter adapter, std::size_t cmds, CompletionToken token)
    {
-      return boost::asio::async_compose
+      return asio::async_compose
          < CompletionToken
-         , void(boost::system::error_code, std::size_t)
+         , void(asio::error_code, std::size_t)
          >(detail::exec_read_op<Derived, Adapter>{&derived(), adapter, cmds}, token, resv_);
    }
 
@@ -405,8 +405,8 @@ private:
    {
       // Coalesce the requests and marks them staged. After a
       // successful write staged requests will be marked as written.
-      BOOST_ASSERT(write_buffer_.empty());
-      BOOST_ASSERT(!reqs_.empty());
+      ASIO_ASSERT(write_buffer_.empty());
+      ASIO_ASSERT(!reqs_.empty());
 
       stage_request(*reqs_.at(0));
 
@@ -445,7 +445,7 @@ private:
          return false;
 
       ++iter;
-      BOOST_ASSERT(iter != std::cend(response_));
+      ASIO_ASSERT(iter != std::cend(response_));
       return iter->value == expected;
    }
 
@@ -469,7 +469,7 @@ private:
    std::vector<resp3::node<std::string>> response_;
    endpoint ep_;
    // The result of async_resolve.
-   boost::asio::ip::tcp::resolver::results_type endpoints_;
+   asio::ip::tcp::resolver::results_type endpoints_;
 };
 
 } // aedis

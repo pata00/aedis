@@ -4,7 +4,7 @@
  * accompanying file LICENSE.txt)
  */
 
-#include <boost/assert.hpp>
+#include <asio/detail/assert.hpp>
 #include <aedis/resp3/type.hpp>
 
 namespace aedis::resp3 {
@@ -79,7 +79,7 @@ auto to_code(type t) -> char
       case type::attribute:            return '|';
       case type::map:                  return '%';
 
-      default: BOOST_ASSERT(false); return ' ';
+      default: ASIO_ASSERT(false); return ' ';
    }
 }
 
