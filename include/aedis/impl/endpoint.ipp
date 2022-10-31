@@ -22,7 +22,7 @@ auto requires_auth(endpoint const& ep) noexcept -> bool
 
 auto operator<<(std::ostream& os, endpoint const& ep) -> std::ostream&
 {
-   os << ep.host << ":" << ep.port << " (" << ep.username << "," << ep.password << ")";
+   os << ep.host << std::string_view(":") << ep.port << std::string_view(" (") << ep.username << std::string_view(",") << ep.password << std::string_view(")");
    return os;
 }
 

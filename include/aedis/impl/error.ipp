@@ -5,6 +5,7 @@
  */
 
 #include <aedis/error.hpp>
+#include <asio/detail/assert.hpp>
 
 namespace aedis {
 namespace detail {
